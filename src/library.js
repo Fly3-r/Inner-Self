@@ -67,6 +67,18 @@ globalThis.MainSettings = (class MainSettings {
     IS_CONFIG_CARD_PINNED_BY_DEFAULT: false
     // (true or false)
     ,
+    // Should Inner Self remain active on cached model turns?
+    ALLOW_CACHED_MODELS: false
+    // (true or false)
+    ,
+    // Minimum turn count required before Inner Self can activate.
+    MINIMUM_HISTORY_LENGTH_BEFORE_ENABLE: 1
+    // (0 to 9999)
+    ,
+    // Which story models should block Inner Self? Leave empty to block none. Ex: Wayfarer Large,Wayfarer Small 2
+    BLOCKED_STORY_MODELS: ""
+    // (write a comma separated list of exact model names inside the "" or leave empty)
+    ,
     // Is AC already enabled when the adventure begins?
     IS_AC_ENABLED_BY_DEFAULT: false
     // (true or false)
@@ -278,6 +290,18 @@ function InnerSelf(hook) {
     IS_CONFIG_CARD_PINNED_BY_DEFAULT: false
     // (true or false)
     ,
+    // Should Inner Self remain active on cached model turns?
+    ALLOW_CACHED_MODELS: false
+    // (true or false)
+    ,
+    // Minimum turn count required before Inner Self can activate.
+    MINIMUM_HISTORY_LENGTH_BEFORE_ENABLE: 1
+    // (0 to 9999)
+    ,
+    // Which story models should block Inner Self? Leave empty to block none.
+    BLOCKED_STORY_MODELS: ""
+    // (write a comma separated list of exact model names inside the "" or leave empty)
+    ,
     // Is AC already enabled when the adventure begins?
     IS_AC_ENABLED_BY_DEFAULT: false
     // (true or false)
@@ -339,6 +363,8 @@ function InnerSelf(hook) {
         label: 0,
         // Hash of recent history to detect retry or erase + continue turns
         hash: "",
+        // Most recent actionCount value observed from info
+        lastKnownActionCount: 0,
         // Total number of brain operations performed across all agents
         ops: 0,
         // Auto-Cards integration state
@@ -380,6 +406,65 @@ function InnerSelf(hook) {
             n = ((31 * n) + serialized.charCodeAt(i)) | 0;
         }
         return n.toString(16);
+    };
+    const normalizeModelValue = (value = "") => String(value).trim().replace(/\s+/g, " ").toLowerCase();
+    const splitModelList = (value = "") => [...new Set(String(value)
+        .split(/[,\n]/)
+        .map(model => normalizeModelValue(model))
+        .filter(model => (model !== ""))
+    )];
+    const readInfoActionCount = () => (
+        Number.isInteger(info?.actionCount)
+        ? Math.abs(info.actionCount)
+        : null
+    );
+    const rememberInfoActionCount = () => {
+        const current = readInfoActionCount();
+        if (current !== null) {
+            IS.lastKnownActionCount = current;
+            return current;
+        } else if (Number.isInteger(IS.lastKnownActionCount)) {
+            return IS.lastKnownActionCount;
+        }
+        return 0;
+    };
+    rememberInfoActionCount();
+    const getStoryModelName = () => {
+        for (const candidate of [
+            info?.storyModel?.name,
+            info?.storyModel?.id,
+            info?.storyModel?.slug,
+            info?.storyModel,
+            info?.model?.name,
+            info?.model?.id,
+            info?.model?.slug,
+            info?.modelName,
+            info?.model
+        ]) {
+            const model = normalizeModelValue(candidate);
+            if (model !== "") {
+                return model;
+            }
+        }
+        return "";
+    };
+    const isCacheEfficientTurn = () => (info?.useCacheEfficient === true);
+    const getInnerSelfActivationCount = () => rememberInfoActionCount();
+    const isInnerSelfHistoryAllowed = (config = {}) => (
+        getInnerSelfActivationCount() >= (
+            Number.isInteger(config.minimumHistoryLength)
+            ? config.minimumHistoryLength
+            : 0
+        )
+    );
+    const isInnerSelfModelAllowed = (config = {}) => {
+        if (!config.allowCachedModels && isCacheEfficientTurn()) {
+            return false;
+        } else if (Array.isArray(config.blockedModels) && (config.blockedModels.length !== 0)) {
+            const currentModel = getStoryModelName();
+            return (currentModel === "") || !config.blockedModels.includes(currentModel);
+        }
+        return true;
     };
     /**
      * Safely parses a JSON string into an object
@@ -427,7 +512,10 @@ function InnerSelf(hook) {
      * @property {boolean} json - Is raw JSON syntax used to serialize NPC brains in their card notes?
      * @property {boolean} debug - Is debug mode enabled for inline task output visibility?
      * @property {boolean} pin - Is the config card pinned near the top of the list?
+     * @property {boolean} allowCachedModels - Should cached model turns run Inner Self?
+     * @property {number} minimumHistoryLength - Minimum turn count before Inner Self activates
      * @property {boolean} auto - Is Auto-Cards enabled?
+     * @property {string[]} blockedModels - Story model names which disable Inner Self
      * @property {string[]} agents - All agent names, ordered from highest to lowest trigger priority
      */
     /**
@@ -466,7 +554,10 @@ function InnerSelf(hook) {
             json: false,
             debug: false,
             pin: false,
+            allowCachedModels: false,
+            minimumHistoryLength: 1,
             auto: false,
+            blockedModels: [],
             agents: []
         });
         /** @type {config} */
@@ -625,6 +716,13 @@ function InnerSelf(hook) {
                 { message: "Pin this config card near the top:", ...factory(
                     "pin", S.IS_CONFIG_CARD_PINNED_BY_DEFAULT
                 ) },
+                { message: "Allow cached models:", ...factory(
+                    "allowCachedModels", S.ALLOW_CACHED_MODELS
+                ) },
+                { message: "Minimum turn count before activation:", ...factory(
+                    "minimumHistoryLength", S.MINIMUM_HISTORY_LENGTH_BEFORE_ENABLE,
+                    { lower: 0, upper: 9999 }
+                ) },
                 { message: "Install Auto-Cards:", ...factory(
                     "auto", S.IS_AC_ENABLED_BY_DEFAULT
                 ) },
@@ -639,6 +737,24 @@ function InnerSelf(hook) {
                 },
                 {
                     message: `Inner Self ${version} is an open-source and general-purpose AI Dungeon mod by LewdLeah. You have my full permission to use it with any scenario!`
+                },
+                {
+                    message: "Block Inner Self on these story models (leave empty to block none):",
+                    builder: (cfg = {}) => ["", "", ...(
+                        config.blockedModels ?? cfg.setter?.(S.BLOCKED_STORY_MODELS)
+                    ), ""].join("\n"),
+                    setter: (value = null, fallible = false) => {
+                        if (typeof value === "string") {
+                            config.blockedModels = splitModelList(value);
+                        } else if (Array.isArray(value)) {
+                            config.blockedModels = splitModelList(value.join("\n"));
+                        } else if (fallible) {
+                            return;
+                        } else {
+                            return (config.blockedModels = [...fallback.blockedModels]);
+                        }
+                        return config.blockedModels;
+                    }
                 },
                 {
                     // This is where players list their NPCs
@@ -1064,6 +1180,11 @@ function InnerSelf(hook) {
         IS.agent = "";
         /** @type {config} */
         const config = Config.get();
+        const innerSelfEnabled = (
+            config.allow
+            && isInnerSelfHistoryAllowed(config)
+            && isInnerSelfModelAllowed(config)
+        );
         if (config.pin) {
             // Move config card to top of list if pinning is enabled
             const index = storyCards.indexOf(config.card);
@@ -1098,7 +1219,7 @@ function InnerSelf(hook) {
             IS.AC.enabled = true;
             if (IS.AC.event || (stop === true)) {
                 // If AC triggered an event or stop, we're done here
-                config.allow ? unzero() : ((IS.encoding = ""), (text ||= " "));
+                innerSelfEnabled ? unzero() : ((IS.encoding = ""), (text ||= " "));
                 return;
             }
         } else if (IS.AC.enabled) {
@@ -1130,12 +1251,6 @@ function InnerSelf(hook) {
                 }
             }
         }
-        if (!config.allow) {
-            // Early exit if Inner Self is disabled
-            IS.encoding = "";
-            text ||= " ";
-            return;
-        }
         /**
          * Removes visual indicators from all story cards
          * Called when no agent is triggered or Inner Self is disabled
@@ -1147,6 +1262,14 @@ function InnerSelf(hook) {
             }
             return;
         };
+        if (!innerSelfEnabled) {
+            // Early exit if Inner Self is disabled
+            deindicateAll();
+            IS.agent = "";
+            IS.encoding = "";
+            text ||= " ";
+            return;
+        }
         if (config.agents.length === 0) {
             // No agents are configured
             deindicateAll();
@@ -2125,6 +2248,11 @@ Follow the format **perfectly**.
     // Process model output and implement brain operations
     /** @type {config} */
     const config = Config.get();
+    const innerSelfEnabled = (
+        config.allow
+        && isInnerSelfHistoryAllowed(config)
+        && isInnerSelfModelAllowed(config)
+    );
     /**
      * Ensures clean visual separation between actions
      * Only applies after "continue" or "story" actions
@@ -2258,7 +2386,7 @@ I hope you will have lots of fun!
         prespace();
         IS.agent = "";
         return;
-    } else if (!config.allow) {
+    } else if (!innerSelfEnabled) {
         // Early exit if Inner Self is disabled
         text ||= "\u200B";
         IS.agent = "";
