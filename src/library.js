@@ -68,12 +68,24 @@ globalThis.MainSettings = (class MainSettings {
     // (true or false)
     ,
     // Should Inner Self remain active on cached model turns?
-    ALLOW_CACHED_MODELS: false
+    ALLOW_CACHED_MODELS: true
     // (true or false)
     ,
     // Minimum turn count required before Inner Self can activate.
-    MINIMUM_HISTORY_LENGTH_BEFORE_ENABLE: 1
+    MINIMUM_HISTORY_LENGTH_BEFORE_ENABLE: 0
     // (0 to 9999)
+    ,
+    // Should one-time warning messages be shown when model rules disable Inner Self?
+    ENABLE_MODEL_WARNING_MESSAGES: false
+    // (true or false)
+    ,
+    // Message shown once per model when Inner Self is disabled on a cached turn.
+    NOTIFICATION_CACHED_MODEL: "Inner Self is disabled on cached turns for %{model}."
+    // (any text inside the ""; use %{model} to include the model name)
+    ,
+    // Message shown once per model when Inner Self is disabled by the blocked models list.
+    NOTIFICATION_BLOCKED_STORY_MODEL: "Inner Self is disabled on blocked story model %{model}."
+    // (any text inside the ""; use %{model} to include the model name)
     ,
     // Which story models should block Inner Self? Leave empty to block none. Ex: Wayfarer Large,Wayfarer Small 2
     BLOCKED_STORY_MODELS: ""
@@ -291,12 +303,24 @@ function InnerSelf(hook) {
     // (true or false)
     ,
     // Should Inner Self remain active on cached model turns?
-    ALLOW_CACHED_MODELS: false
+    ALLOW_CACHED_MODELS: true
     // (true or false)
     ,
     // Minimum turn count required before Inner Self can activate.
     MINIMUM_HISTORY_LENGTH_BEFORE_ENABLE: 1
     // (0 to 9999)
+    ,
+    // Should one-time warning messages be shown when model rules disable Inner Self?
+    ENABLE_MODEL_WARNING_MESSAGES: true
+    // (true or false)
+    ,
+    // Message shown once per model when Inner Self is disabled on a cached turn.
+    NOTIFICATION_CACHED_MODEL: "Inner Self is disabled on cached turns for %{model}."
+    // (any text inside the ""; use %{model} to include the model name)
+    ,
+    // Message shown once per model when Inner Self is disabled by the blocked models list.
+    NOTIFICATION_BLOCKED_STORY_MODEL: "Inner Self is disabled on blocked story model %{model}."
+    // (any text inside the ""; use %{model} to include the model name)
     ,
     // Which story models should block Inner Self? Leave empty to block none.
     BLOCKED_STORY_MODELS: ""
@@ -365,6 +389,14 @@ function InnerSelf(hook) {
         hash: "",
         // Most recent actionCount value observed from info
         lastKnownActionCount: 0,
+        // Models from the blocked list which have actually been encountered
+        detectedBlockedModels: [],
+        // Blocked models already shown to the user
+        warnedBlockedModels: [],
+        // Cached models already shown to the user
+        warnedCachedModels: [],
+        // One-time output notice queued for the current turn
+        pendingUserNotice: "",
         // Total number of brain operations performed across all agents
         ops: 0,
         // Auto-Cards integration state
@@ -407,12 +439,25 @@ function InnerSelf(hook) {
         }
         return n.toString(16);
     };
+    const normalizeWhitespace = (value = "") => (
+        ((typeof value === "string") || (typeof value === "number"))
+        ? String(value).replace(/\s+/g, " ").trim()
+        : ""
+    );
     const normalizeModelValue = (value = "") => String(value).trim().replace(/\s+/g, " ").toLowerCase();
     const splitModelList = (value = "") => [...new Set(String(value)
         .split(/[,\n]/)
         .map(model => normalizeModelValue(model))
         .filter(model => (model !== ""))
     )];
+    const pushUnique = (list = [], value = "") => {
+        value = normalizeWhitespace(value);
+        if ((value === "") || !Array.isArray(list) || list.includes(value)) {
+            return false;
+        }
+        list.push(value);
+        return true;
+    };
     const readInfoActionCount = () => (
         Number.isInteger(info?.actionCount)
         ? Math.abs(info.actionCount)
@@ -429,7 +474,7 @@ function InnerSelf(hook) {
         return 0;
     };
     rememberInfoActionCount();
-    const getStoryModelName = () => {
+    const getStoryModelDisplayName = () => {
         for (const candidate of [
             info?.storyModel?.name,
             info?.storyModel?.id,
@@ -441,13 +486,14 @@ function InnerSelf(hook) {
             info?.modelName,
             info?.model
         ]) {
-            const model = normalizeModelValue(candidate);
+            const model = normalizeWhitespace(candidate);
             if (model !== "") {
                 return model;
             }
         }
-        return "";
+        return "unknown";
     };
+    const getStoryModelName = () => normalizeModelValue(getStoryModelDisplayName());
     const isCacheEfficientTurn = () => (info?.useCacheEfficient === true);
     const getInnerSelfActivationCount = () => rememberInfoActionCount();
     const isInnerSelfHistoryAllowed = (config = {}) => (
@@ -457,14 +503,63 @@ function InnerSelf(hook) {
             : 0
         )
     );
-    const isInnerSelfModelAllowed = (config = {}) => {
+    const getInnerSelfModelStatus = (config = {}) => {
+        const modelName = getStoryModelName();
+        const modelLabel = getStoryModelDisplayName();
         if (!config.allowCachedModels && isCacheEfficientTurn()) {
-            return false;
+            return { allowed: false, reason: "cached", modelName, modelLabel };
         } else if (Array.isArray(config.blockedModels) && (config.blockedModels.length !== 0)) {
-            const currentModel = getStoryModelName();
-            return (currentModel === "") || !config.blockedModels.includes(currentModel);
+            if ((modelName !== "") && (modelName !== "unknown") && config.blockedModels.includes(modelName)) {
+                return { allowed: false, reason: "blocked", modelName, modelLabel };
+            }
         }
-        return true;
+        return { allowed: true, reason: "", modelName, modelLabel };
+    };
+    const formatModelWarning = (template = "", modelLabel = "") => normalizeWhitespace(
+        String(template || "").replace(/%\{model\}/g, modelLabel || "unknown")
+    );
+    const queueModelWarning = (modelStatus = {}, config = {}) => {
+        const modelKey = normalizeModelValue(modelStatus.modelName || "");
+        const modelLabel = normalizeWhitespace(modelStatus.modelLabel || modelKey || "unknown");
+        if (modelStatus.reason === "blocked") {
+            pushUnique(IS.detectedBlockedModels, modelKey || modelLabel);
+        }
+        if (!config.enableModelWarningMessages) {
+            return;
+        }
+        const warnedList =
+            (modelStatus.reason === "blocked")
+            ? IS.warnedBlockedModels
+            : (modelStatus.reason === "cached")
+            ? IS.warnedCachedModels
+            : null;
+        if (!warnedList || !pushUnique(warnedList, modelKey || modelLabel)) {
+            return;
+        }
+        IS.pendingUserNotice = formatModelWarning(
+            (modelStatus.reason === "blocked")
+            ? config.notificationBlockedStoryModel
+            : config.notificationCachedModel,
+            modelLabel
+        );
+    };
+    const consumePendingUserNotice = () => {
+        const pending = normalizeWhitespace(IS.pendingUserNotice || "");
+        IS.pendingUserNotice = "";
+        return pending;
+    };
+    const buildUserNoticeBlock = (message = "") => {
+        message = normalizeWhitespace(message);
+        return (message === "") ? "" : `>>> Inner Self:\n${message}\n<<<`;
+    };
+    const applyUserNoticeToOutput = (output = "") => {
+        const notice = buildUserNoticeBlock(consumePendingUserNotice());
+        if (notice === "") {
+            return output;
+        } else if ((typeof output !== "string") || (output === "") || (output === "\u200B")) {
+            return notice;
+        }
+        return `${notice}\n\n${String(output).trimStart()}`;
     };
     /**
      * Safely parses a JSON string into an object
@@ -514,6 +609,9 @@ function InnerSelf(hook) {
      * @property {boolean} pin - Is the config card pinned near the top of the list?
      * @property {boolean} allowCachedModels - Should cached model turns run Inner Self?
      * @property {number} minimumHistoryLength - Minimum turn count before Inner Self activates
+     * @property {boolean} enableModelWarningMessages - Show one-time model warning messages in output
+     * @property {string} notificationCachedModel - Cached-model warning message template
+     * @property {string} notificationBlockedStoryModel - Blocked-model warning message template
      * @property {boolean} auto - Is Auto-Cards enabled?
      * @property {string[]} blockedModels - Story model names which disable Inner Self
      * @property {string[]} agents - All agent names, ordered from highest to lowest trigger priority
@@ -554,8 +652,12 @@ function InnerSelf(hook) {
             json: false,
             debug: false,
             pin: false,
-            allowCachedModels: false,
+            allowCachedModels: true,
             minimumHistoryLength: 1,
+            enableModelWarningMessages: true,
+            notificationCachedModel: "Inner Self is disabled on cached turns for %{model}.",
+            notificationBlockedStoryModel:
+                "Inner Self is disabled on blocked story model %{model}.",
             auto: false,
             blockedModels: [],
             agents: []
@@ -723,6 +825,44 @@ function InnerSelf(hook) {
                     "minimumHistoryLength", S.MINIMUM_HISTORY_LENGTH_BEFORE_ENABLE,
                     { lower: 0, upper: 9999 }
                 ) },
+                { message: "Enable model warning messages:", ...factory(
+                    "enableModelWarningMessages", S.ENABLE_MODEL_WARNING_MESSAGES
+                ) },
+                {
+                    message: "Cached model warning message:",
+                    builder: (cfg = {}) => ` "${(
+                        config.notificationCachedModel
+                        ?? cfg.setter?.(S.NOTIFICATION_CACHED_MODEL)
+                    )}"`,
+                    setter: (value = null, fallible = false) => {
+                        if (typeof value === "string") {
+                            config.notificationCachedModel = value.replaceAll("\"", "").trim();
+                        } else if (fallible) {
+                            return;
+                        } else {
+                            config.notificationCachedModel = fallback.notificationCachedModel;
+                        }
+                        return config.notificationCachedModel;
+                    }
+                },
+                {
+                    message: "Blocked story model warning message:",
+                    builder: (cfg = {}) => ` "${(
+                        config.notificationBlockedStoryModel
+                        ?? cfg.setter?.(S.NOTIFICATION_BLOCKED_STORY_MODEL)
+                    )}"`,
+                    setter: (value = null, fallible = false) => {
+                        if (typeof value === "string") {
+                            config.notificationBlockedStoryModel = value.replaceAll("\"", "").trim();
+                        } else if (fallible) {
+                            return;
+                        } else {
+                            config.notificationBlockedStoryModel =
+                                fallback.notificationBlockedStoryModel;
+                        }
+                        return config.notificationBlockedStoryModel;
+                    }
+                },
                 { message: "Install Auto-Cards:", ...factory(
                     "auto", S.IS_AC_ENABLED_BY_DEFAULT
                 ) },
@@ -1180,10 +1320,14 @@ function InnerSelf(hook) {
         IS.agent = "";
         /** @type {config} */
         const config = Config.get();
+        const modelStatus = getInnerSelfModelStatus(config);
+        if (!modelStatus.allowed) {
+            queueModelWarning(modelStatus, config);
+        }
         const innerSelfEnabled = (
             config.allow
             && isInnerSelfHistoryAllowed(config)
-            && isInnerSelfModelAllowed(config)
+            && modelStatus.allowed
         );
         if (config.pin) {
             // Move config card to top of list if pinning is enabled
@@ -2248,10 +2392,14 @@ Follow the format **perfectly**.
     // Process model output and implement brain operations
     /** @type {config} */
     const config = Config.get();
+    const modelStatus = getInnerSelfModelStatus(config);
+    if (!modelStatus.allowed) {
+        queueModelWarning(modelStatus, config);
+    }
     const innerSelfEnabled = (
         config.allow
         && isInnerSelfHistoryAllowed(config)
-        && isInnerSelfModelAllowed(config)
+        && modelStatus.allowed
     );
     /**
      * Ensures clean visual separation between actions
@@ -2389,6 +2537,7 @@ I hope you will have lots of fun!
     } else if (!innerSelfEnabled) {
         // Early exit if Inner Self is disabled
         text ||= "\u200B";
+        text = applyUserNoticeToOutput(text);
         IS.agent = "";
         return;
     }
@@ -2882,6 +3031,7 @@ I hope you will have lots of fun!
         agent.card.entry = `${agent.card.entry}\n\n// operation ${IS.ops}\n${operation()}`.trimStart();
     }
     text ||= "\u200B";
+    text = applyUserNoticeToOutput(text);
     // Keep the operation log from growing unbounded
     // Limit to approximately 2000 chars to satisfy AID's soft entry limit
     agent.card.entry = agent.card.entry.split(/\n\n/).slice(-2000).reduceRight((out, op) => (
