@@ -1782,7 +1782,7 @@ You must output one short parenthetical task followed by the story continuation.
 ## STORY CONTINUATION (REQUIRED)
 - After the closing parenthesis, write **one space** and then continue the story
 - Written from ${ownership(config.player)} **first person present tense** PoV
-- The story continues where it previously left off, with many lines or sentences of new prose
+- The story continues EXACTLY where it previously left off, with many lines or sentences of new prose, without reiterating information or content
 
 ## EXACT SHAPE
 (delete unwanted_key) Story continues from ${ownership(config.player)} perspective, using first person present tense prose...
@@ -1803,7 +1803,7 @@ You must output one short parenthetical task followed by the story continuation.
 ## STORY CONTINUATION (REQUIRED)
 - After the closing parenthesis, write **one space** and then continue the story
 - Written from ${ownership(config.player)} **second person present tense** ("you") PoV
-- The story continues where it previously left off, with many lines or sentences of new prose
+- The story continues EXACTLY where it previously left off, with many lines or sentences of new prose, without reiterating information or content
 
 ## EXACT SHAPE
 (delete unwanted_key) Story continues from ${ownership(config.player)} second person perspective...
@@ -1824,7 +1824,7 @@ You must output one short parenthetical task followed by the story continuation.
 ## STORY CONTINUATION (REQUIRED)
 - After the closing parenthesis, write **one space** and then continue the story
 - Written from ${ownership(config.player)} **third person** PoV
-- The story continues where it previously left off, with many lines or sentences of new prose
+- The story continues EXACTLY where it previously left off, with many lines or sentences of new prose, without reiterating information or content
 
 ## EXACT SHAPE
 (delete unwanted_key) Story continues with third person prose...
@@ -1863,7 +1863,7 @@ This creates or overwrites the thought associated with that key.
 ## STORY CONTINUATION (REQUIRED)
 - After the closing parenthesis, write **one space** and then continue the story
 - Written from ${ownership(config.player)} **first person present tense** PoV
-- The story continues where it previously left off, with many lines or sentences of new prose
+- The story continues EXACTLY where it previously left off, with many lines or sentences of new prose, without reiterating information or content
 
 ## EXACT SHAPE
 (example_key = \`${ownership(agent.name)} own short 1-sentence thought in first person.\`) Story continues from ${ownership(config.player)} perspective, using first person present tense prose...
@@ -1899,7 +1899,7 @@ This creates or overwrites the thought associated with that key.
 ## STORY CONTINUATION (REQUIRED)
 - After the closing parenthesis, write **one space** and then continue the story
 - Written from ${ownership(config.player)} **second person present tense** ("you") PoV
-- The story continues where it previously left off, with many lines or sentences of new prose
+- The story continues EXACTLY where it previously left off, with many lines or sentences of new prose, without reiterating information or content
 
 ## EXACT SHAPE
 (example_key = \`${ownership(agent.name)} own short 1-sentence thought in first person.\`) Story continues from ${ownership(config.player)} second person perspective...
@@ -1935,7 +1935,7 @@ This creates or overwrites the thought associated with that key.
 ## STORY CONTINUATION (REQUIRED)
 - After the closing parenthesis, write **one space** and then continue the story
 - Written from ${ownership(config.player)} **third person** PoV
-- The story continues where it previously left off, with many lines or sentences of new prose
+- The story continues EXACTLY where it previously left off, with many lines or sentences of new prose, without reiterating information or content
 
 ## EXACT SHAPE
 (example_key = \`${ownership(agent.name)} own short 1-sentence thought in first person.\`) Story continues with third person prose...
@@ -1982,6 +1982,8 @@ Inside the parentheses:
   - Only refer to other characters directly by name in the thought sentence.
   - Avoid using pronouns or the word "you" which is too vague. Use specific names instead.
   - Never repeat, novelty and uniqueness are top priorities.
+  - Never repeat former identical thoughts of ${ownership(agent.name)}.
+  - Only use facts what ${ownership(agent.name)} logically has information on.
   - ${ownership(agent.name)} thought must be short.
   - Never hallucinate facts.
 - End the sentence with a period and backtick **inside** the parentheses; close with ".\`)".
@@ -2091,6 +2093,8 @@ Inside the parentheses:
   - Only refer to other characters directly by name in the thought sentence.
   - Avoid using pronouns or the word "you" which is too vague. Use specific names instead.
   - Never repeat, novelty and uniqueness are top priorities.
+  - Never repeat former identical thoughts of ${ownership(agent.name)}.
+  - Only use facts what ${ownership(agent.name)} logically has information on.
   - ${ownership(agent.name)} thought must be short.
   - Never hallucinate facts.
 - End the sentence with a period and backtick **inside** the parentheses; close with ".\`)".
@@ -2200,6 +2204,8 @@ Inside the parentheses:
   - Only refer to other characters directly by name in the thought sentence.
   - Avoid using pronouns or the word "you" which is too vague. Use specific names instead.
   - Never repeat, novelty and uniqueness are top priorities.
+  - Never repeat former identical thoughts of ${ownership(agent.name)}.
+  - Only use facts what ${ownership(agent.name)} logically has information on.
   - ${ownership(agent.name)} thought must be short.
   - Never hallucinate facts.
 - End the sentence with a period and backtick **inside** the parentheses; close with ".\`)".
