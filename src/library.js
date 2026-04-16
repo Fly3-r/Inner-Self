@@ -68,11 +68,11 @@ globalThis.MainSettings = (class MainSettings {
     // (true or false)
     ,
     // Should Inner Self remain active on cached model turns?
-    ALLOW_CACHED_MODELS: true
+    ALLOW_CACHED_MODELS: false
     // (true or false)
     ,
     // Minimum turn count required before Inner Self can activate.
-    MINIMUM_HISTORY_LENGTH_BEFORE_ENABLE: 0
+    MINIMUM_HISTORY_LENGTH_BEFORE_ENABLE: 2
     // (0 to 9999)
     ,
     // Should one-time warning messages be shown when model rules disable Inner Self?
@@ -1854,7 +1854,9 @@ Inside the parentheses:
   - Written from ${ownership(agent.name)} **first person** PoV${refocus(false)}
   - Avoid using pronouns or the word "you", instead ${agent.name} refers to other characters directly by name
   - Never repeat, novelty and uniqueness are top priorities
+  - Never repeat former identical thoughts of ${ownership(agent.name)}
   - ${ownership(agent.name)} thought must be one single sentence only
+  - Only use facts what ${ownership(agent.name)} logically has information on
   - Never hallucinate facts
 - End the sentence with a period and backtick inside the parentheses; close with ".\`)"
 
@@ -1890,7 +1892,9 @@ Inside the parentheses:
   - Written from ${ownership(agent.name)} **first person** PoV${refocus(false)}
   - Avoid using pronouns or the word "you", instead ${agent.name} refers to other characters directly by name
   - Never repeat, novelty and uniqueness are top priorities
+  - Never repeat former identical thoughts of ${ownership(agent.name)}
   - ${ownership(agent.name)} thought must be one single sentence only
+  - Only use facts what ${ownership(agent.name)} logically has information on
   - Never hallucinate facts
 - End the sentence with a period and backtick inside the parentheses; close with ".\`)"
 
@@ -1926,7 +1930,9 @@ Inside the parentheses:
   - Written from ${ownership(agent.name)} **first person** PoV${refocus(false)}
   - Avoid using pronouns or the word "you", instead ${agent.name} refers to other characters directly by name
   - Never repeat, novelty and uniqueness are top priorities
+  - Never repeat former identical thoughts of ${ownership(agent.name)}
   - ${ownership(agent.name)} thought must be one single sentence only
+  - Only use facts what ${ownership(agent.name)} logically has information on
   - Never hallucinate facts
 - End the sentence with a period and backtick inside the parentheses; close with ".\`)"
 
@@ -1983,8 +1989,8 @@ Inside the parentheses:
   - Avoid using pronouns or the word "you" which is too vague. Use specific names instead.
   - Never repeat, novelty and uniqueness are top priorities.
   - Never repeat former identical thoughts of ${ownership(agent.name)}.
-  - Only use facts what ${ownership(agent.name)} logically has information on.
   - ${ownership(agent.name)} thought must be short.
+  - Only use facts what ${ownership(agent.name)} logically has information on.
   - Never hallucinate facts.
 - End the sentence with a period and backtick **inside** the parentheses; close with ".\`)".
 
@@ -2024,7 +2030,7 @@ Rules:
 4. Do **NOT** write extra parentheses.
 5. Do **NOT** use more than one operation per turn.
 6. Do **NOT** invent new structures or mix formats.
-7. The story continues where it previously left off, with many sentences of brand new prose.
+7. The story continues EXACTLY where it previously left off, with many sentences of brand new prose, without reiterating information or content.
 
 ---
 
@@ -2034,7 +2040,7 @@ Rules:
 - **If ${agent.name} reuses an already existing key, the new thought REPLACES / OVERRIDES the older thought stored under that key.**
 - This means:
   - Reusing an old key: **Overwrite an old thought with a new thought.** Useful for extending or maintaining existing information stored in ${ownership(agent.name)} brain.
-  - Using a new key: **Create a new thought.** Useful for storing ${ownership(agent.name)} memories, self-modifying ${ownership(agent.name)} own personality, tracking ${ownership(agent.name)} goals, or making plans for ${agent.name} to follow.
+  - Using a new key: **Create a new thought.** Useful for storing ${ownership(agent.name)} memories, self-modifying ${ownership(agent.name)} own personality, tracking ${ownership(agent.name)} goals with, demonstration slow-burn gain or loss of ${ownership(agent.name)}'s relationship with ${agent.name} or making plans for ${agent.name} to follow.
 - **Renaming a key moves the thought to a new name.** Useful for reorganizing ${ownership(agent.name)} brain.
 - **Deleting a key removes the thought permanently.** Helps ${agent.name} forget outdated, superfluous, or irrelevant information.
 - Choose keys carefully so ${agent.name} can easily recall, update, overwrite, rename, or delete thoughts as required for self-improvement.
@@ -2135,7 +2141,7 @@ Rules:
 4. Do **NOT** write extra parentheses.
 5. Do **NOT** use more than one operation per turn.
 6. Do **NOT** invent new structures or mix formats.
-7. The story continues where it previously left off, with many sentences of brand new prose.
+7. The story continues EXACTLY where it previously left off, with many sentences of brand new prose, without reiterating information or content.
 
 ---
 
@@ -2145,7 +2151,7 @@ Rules:
 - **If ${agent.name} reuses an already existing key, the new thought REPLACES / OVERRIDES the older thought stored under that key.**
 - This means:
   - Reusing an old key: **Overwrite an old thought with a new thought.** Useful for extending or maintaining existing information stored in ${ownership(agent.name)} brain.
-  - Using a new key: **Create a new thought.** Useful for storing ${ownership(agent.name)} memories, self-modifying ${ownership(agent.name)} own personality, tracking ${ownership(agent.name)} goals, or making plans for ${agent.name} to follow.
+  - Using a new key: **Create a new thought.** Useful for storing ${ownership(agent.name)} memories, self-modifying ${ownership(agent.name)} own personality, tracking ${ownership(agent.name)} goals with, demonstration slow-burn gain or loss of ${ownership(agent.name)}'s relationship with ${agent.name} or making plans for ${agent.name} to follow.
 - **Renaming a key moves the thought to a new name.** Useful for reorganizing ${ownership(agent.name)} brain.
 - **Deleting a key removes the thought permanently.** Helps ${agent.name} forget outdated, superfluous, or irrelevant information.
 - Choose keys carefully so ${agent.name} can easily recall, update, overwrite, rename, or delete thoughts as required for self-improvement.
@@ -2246,7 +2252,7 @@ Rules:
 4. Do **NOT** write extra parentheses.
 5. Do **NOT** use more than one operation per turn.
 6. Do **NOT** invent new structures or mix formats.
-7. The story continues where it previously left off, with many sentences of brand new prose.
+7. The story continues EXACTLY where it previously left off, with many sentences of brand new prose, without reiterating information or content.
 
 ---
 
@@ -2256,7 +2262,7 @@ Rules:
 - **If ${agent.name} reuses an already existing key, the new thought REPLACES / OVERRIDES the older thought stored under that key.**
 - This means:
   - Reusing an old key: **Overwrite an old thought with a new thought.** Useful for extending or maintaining existing information stored in ${ownership(agent.name)} brain.
-  - Using a new key: **Create a new thought.** Useful for storing ${ownership(agent.name)} memories, self-modifying ${ownership(agent.name)} own personality, tracking ${ownership(agent.name)} goals, or making plans for ${agent.name} to follow.
+  - Using a new key: **Create a new thought.** Useful for storing ${ownership(agent.name)} memories, self-modifying ${ownership(agent.name)} own personality, tracking ${ownership(agent.name)} goals with, demonstration slow-burn gain or loss of ${ownership(agent.name)}'s relationship with ${agent.name} or making plans for ${agent.name} to follow.
 - **Renaming a key moves the thought to a new name.** Useful for reorganizing ${ownership(agent.name)} brain.
 - **Deleting a key removes the thought permanently.** Helps ${agent.name} forget outdated, superfluous, or irrelevant information.
 - Choose keys carefully so ${agent.name} can easily recall, update, overwrite, rename, or delete thoughts as required for self-improvement.
