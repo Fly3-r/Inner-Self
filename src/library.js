@@ -11,7 +11,7 @@ globalThis.MainSettings = (class MainSettings {
     //—————————————————————————————————————————————————————————————————————————————————
 
     /**
-     * Inner Self v1.0.2
+     * Inner Self v1.0.3
      * Made by LewdLeah on January 3, 2026
      * Gives story characters the ability to learn, plan, and adapt over time
      * Inner Self is free and open-source for anyone! ❤️
